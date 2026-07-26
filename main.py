@@ -3,6 +3,22 @@ from pyrogram.enums import ParseMode
 from config import Config
 import asyncio
 import pyromod # ✅ ADDED FOR STEP-BY-STEP CONVERSATION
+from flask import Flask
+from threading import Thread
+
+# ==========================================
+# Koyeb Health Check Pass Karne Ke Liye Web Server
+# ==========================================
+app = Flask(__name__)
+
+@app.route('/')
+def health_check():
+    return "Bot is alive and running!"
+
+def run_server():
+    app.run(host="0.0.0.0", port=8000)
+# ==========================================
+
 
 class PremiumBot(Client):
     def __init__(self):
@@ -24,5 +40,8 @@ class PremiumBot(Client):
         print("❌ 𝗕𝗼𝘁 𝗦𝘁𝗼𝗽𝗽𝗲𝗱!")
 
 if __name__ == "__main__":
+    # Bot start hone se pehle dummy server ko alag thread me start karein
+    Thread(target=run_server, daemon=True).start()
+    
     bot = PremiumBot()
     bot.run()
