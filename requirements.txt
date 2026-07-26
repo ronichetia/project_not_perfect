@@ -4,3 +4,4 @@ motor
 asyncio
 dnspython
 pyromod
+flask
