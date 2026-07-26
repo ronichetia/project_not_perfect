@@ -58,9 +58,31 @@ async def add_channel_step_by_step(client, message):
             # Agar user ne galti se 'Genres: Drama' likha hai to automatically clean kar dega
             desc = re.sub(r"(?i)^genres?:\s*", "", genre_msg.text)
 
+        # STEP 4: AUDIO
+        audio_msg = await chat.ask(
+            "🔊 **Set Audio Languages**\n\nSend the audio languages available (e.g., Hindi, English, Dual Audio) or send `/skip`.\n\n*(Just type the languages, no need to write 'Audio:')*",
+            reply_markup=cancel_btn, timeout=120
+        )
+        if audio_msg.text.lower() == "/cancel": return
+        
+        audio = ""
+        if audio_msg.text.lower() != "/skip":
+            audio = re.sub(r"(?i)^audios?:\s*", "", audio_msg.text)
+
+        # STEP 5: SUBTITLES
+        sub_msg = await chat.ask(
+            "📝 **Set Subtitles**\n\nSend the subtitle details (e.g., English, ESub, None) or send `/skip`.\n\n*(Just type the details, no need to write 'Subtitles:')*",
+            reply_markup=cancel_btn, timeout=120
+        )
+        if sub_msg.text.lower() == "/cancel": return
+        
+        subtitles = ""
+        if sub_msg.text.lower() != "/skip":
+            subtitles = re.sub(r"(?i)^subtitles?:\s*", "", sub_msg.text)
+
         # 🚫 REMOVED POST MODE & AUTO-DELETE STEPS TO MATCH GLOBAL ADMIN SETTINGS
 
-        # STEP 4: POSTER IMAGE
+        # STEP 6: POSTER IMAGE
         poster_msg = await chat.ask(
             "🖼️ **Set Channel Poster**\n\nSend a cool poster image for this channel, or send `/skip` to bypass this step:",
             reply_markup=cancel_btn, timeout=120
@@ -74,16 +96,20 @@ async def add_channel_step_by_step(client, message):
         channel_data = {
             "name": title,
             "description": desc,
+            "audio": audio,
+            "subtitles": subtitles,
             "poster_id": poster_id
         }
         await db.add_channel(ch_id, channel_data)
 
-        # FINAL SUCCESS MESSAGE (Video Format)
+        # FINAL SUCCESS MESSAGE
         success_text = (
             "🎉 **Channel Successfully Added!**\n\n"
             f"🏷 **Title:** {title}\n"
             f"🆔 **ID:** `{ch_id}`\n"
-            f"🎭 **Genres:** {desc if desc else 'Skipped'}\n\n"
+            f"🎭 **Genres:** {desc if desc else 'Skipped'}\n"
+            f"🔊 **Audio:** {audio if audio else 'Skipped'}\n"
+            f"📝 **Subtitles:** {subtitles if subtitles else 'Skipped'}\n\n"
             "*(Note: Post Mode and Auto-Delete settings will be applied globally from the Admin Panel)*"
         )
 
