@@ -12,7 +12,7 @@ post_data = {}
 # Temporary storage for smart auto-batching
 pending_uploads = {} 
 
-# ⏱️ Helper function
+# ⏱️ Helper function for parsing time
 def parse_time(time_str):
     if not time_str or str(time_str).lower() in ["0", "off", "none"]: return 0
     time_str = str(time_str).lower()
@@ -23,6 +23,18 @@ def parse_time(time_str):
     try: return int(time_str)
     except: return 0
 
+# 🕰️ New Helper function: Converts 300 to "5 Minutes"
+def get_readable_time(seconds):
+    if seconds <= 0:
+        return "Disabled"
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    parts = []
+    if h > 0: parts.append(f"{h} Hours")
+    if m > 0: parts.append(f"{m} Minutes")
+    if s > 0: parts.append(f"{s} Seconds")
+    return " ".join(parts)
+
 # 🔗 Helper function
 def format_url(url):
     if not url: return None
@@ -31,7 +43,7 @@ def format_url(url):
         return f"https://{url}"
     return url
 
-# 🔍 𝗦𝗺𝗮𝗿𝘁 𝗥𝗲𝗴𝗲𝘅 - 𝗘𝗽𝗶𝘀𝗼𝗱𝗲 𝗗𝗲𝘁𝗲𝗰𝘁𝗶𝗼𝗻 (Strictly fixed to avoid 720p/1080p bugs)
+# 🔍 𝗦𝗺𝗮𝗿𝘁 𝗥𝗲𝗴𝗲𝘅 - 𝗘𝗽𝗶𝘀𝗼𝗱𝗲 𝗗𝗲𝘁𝗲𝗰𝘁𝗶𝗼𝗻
 EP_REGEX = r"(?i)(?:s\d{1,2})?[\s_.\-:]*(?:ep|episode|epi|e)[\s_.\-:]*(\d+)(?:(?:\s*[-~]\s*|\s+to\s+)(\d+))?"
 
 
@@ -43,11 +55,9 @@ async def handle_video_upload(client, message):
     file_id = message.document.file_id if message.document else message.video.file_id
     caption = message.caption or "No Caption"
 
-    # Agar user ne pehli baar file bheji hai, to nayi list banayenge
     if user_id not in pending_uploads:
         pending_uploads[user_id] = []
 
-    # File ko queue me add karna
     pending_uploads[user_id].append({
         "file_id": file_id,
         "caption": caption,
@@ -58,15 +68,13 @@ async def handle_video_upload(client, message):
     files = pending_uploads[user_id]
     ep_numbers = []
 
-    # Queue me jitni bhi files hain, sabke episode numbers check karna
     for f in files:
         match = re.search(EP_REGEX, f['caption'])
         if match:
-            ep_numbers.append(int(match.group(1))) # First Ep Number
-            if match.group(2): # If explicit range exists in filename
+            ep_numbers.append(int(match.group(1)))
+            if match.group(2): 
                 ep_numbers.append(int(match.group(2)))
 
-    # Smart Button Naming
     if ep_numbers:
         min_ep = min(ep_numbers)
         max_ep = max(ep_numbers)
@@ -102,23 +110,23 @@ async def process_generate_post(client, query: CallbackQuery):
         return await query.answer("❌ No pending files found!", show_alert=True)
         
     files = pending_uploads[user_id]
-    main_caption = files[0]['caption'] # Pehli video ka caption use hoga
+    main_caption = files[0]['caption'] 
     
     ep_numbers = []
-    file_ids = []
+    file_data = [] # 👈 FIX: Ab sirf ID nahi, caption bhi store hoga
     msg_ids = []
     
-    # Final data preparation
     for f in files:
-        file_ids.append(f['file_id'])
+        # Ab JSON me dono cheezein list of dictionaries ban kar save hongi
+        file_data.append({"file_id": f['file_id'], "caption": f['caption']})
         msg_ids.append(f['msg_id'])
+        
         match = re.search(EP_REGEX, f['caption'])
         if match:
             ep_numbers.append(int(match.group(1)))
             if match.group(2):
                 ep_numbers.append(int(match.group(2)))
                 
-    # Final Button Name
     if ep_numbers:
         min_ep = min(ep_numbers)
         max_ep = max(ep_numbers)
@@ -126,9 +134,9 @@ async def process_generate_post(client, query: CallbackQuery):
     else:
         btn_name = f"📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱 {len(files)} 𝗩𝗶𝗱𝗲𝗼𝘀" if len(files) > 1 else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱 𝗩𝗶𝗱𝗲𝗼"
 
-    # Secure Hash aur Link generate karna
     file_hash = secrets.token_urlsafe(8)
-    await db.save_file(json.dumps(file_ids), file_hash, main_caption)
+    # Database me JSON ab naye format me jayega
+    await db.save_file(json.dumps(file_data), file_hash, main_caption)
     
     bot_info = await client.get_me()
     start_link = f"https://t.me/{bot_info.username}?start={file_hash}"
@@ -142,7 +150,6 @@ async def process_generate_post(client, query: CallbackQuery):
         "is_batch": len(files) > 1
     }
     
-    # Queue ko clear karna jab kaam ho jaye
     del pending_uploads[user_id]
     
     await query.message.delete()
@@ -203,7 +210,8 @@ async def final_post_to_channel(client, query: CallbackQuery):
     ch_title = target_channel.get("name", "")
     
     timer_seconds = parse_time(auto_del_str)
-    sent_msg_ids = [] # Single or multiple post IDs
+    display_time = get_readable_time(timer_seconds) # 👈 FIX: Seconds converted to text
+    sent_msg_ids = []
     
     try:
         if post_mode == "Forward":
@@ -224,7 +232,7 @@ async def final_post_to_channel(client, query: CallbackQuery):
                     message_id=mid
                 )
                 sent_msg_ids.append(msg.id)
-                await asyncio.sleep(1) # Batch copy rate-limit prevention
+                await asyncio.sleep(1) 
                 
         else: # Link Mode
             btn_rows = [[InlineKeyboardButton(p_data["btn_name"], url=format_url(p_data["start_link"]))]]
@@ -257,12 +265,12 @@ async def final_post_to_channel(client, query: CallbackQuery):
             
             sent_msg_ids = [msg.id]
                 
-        await query.message.edit(f"> ✅ **𝗣𝗼𝘀𝘁 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆 𝗦𝗲𝗻𝘁!**\n\n**𝗠𝗼𝗱𝗲:** `{post_mode}`\n**𝗔𝘂𝘁𝗼-𝗗𝗲𝗹𝗲𝘁𝗲:** `{auto_del_str}`")
+        # 👈 FIX: Ab '300' ki jagah '5 Minutes' show hoga
+        await query.message.edit(f"> ✅ **𝗣𝗼𝘀𝘁 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆 𝗦𝗲𝗻𝘁!**\n\n**𝗠𝗼𝗱𝗲:** `{post_mode}`\n**𝗔𝘂𝘁𝗼-𝗗𝗲𝗹𝗲𝘁𝗲:** `{display_time}`")
         
     except Exception as e:
         return await query.message.edit(f"❌ **Error While Posting:**\n`{e}`")
 
-    # 🗑️ Auto Delete Background Task
     if timer_seconds > 0:
         if sent_msg_ids:
             asyncio.create_task(delete_post_later(client, channel_id, sent_msg_ids, timer_seconds))
@@ -270,7 +278,6 @@ async def final_post_to_channel(client, query: CallbackQuery):
         asyncio.create_task(delete_post_later(client, p_data["chat_id"], p_data["msg_ids"], timer_seconds))
         asyncio.create_task(delete_post_later(client, query.message.chat.id, [query.message.id], timer_seconds))
 
-# Background Helper Task (Supports both single ID and list of IDs)
 async def delete_post_later(client, chat_id, msg_ids, delay):
     await asyncio.sleep(delay)
     try:
