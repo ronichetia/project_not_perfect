@@ -12,7 +12,7 @@ post_data = {}
 # Temporary storage for smart auto-batching
 pending_uploads = {} 
 
-# ⏱️ Helper function for parsing time
+# â±ï¸ Helper function
 def parse_time(time_str):
     if not time_str or str(time_str).lower() in ["0", "off", "none"]: return 0
     time_str = str(time_str).lower()
@@ -23,19 +23,7 @@ def parse_time(time_str):
     try: return int(time_str)
     except: return 0
 
-# 🕰️ New Helper function: Converts 300 to "5 Minutes"
-def get_readable_time(seconds):
-    if seconds <= 0:
-        return "Disabled"
-    m, s = divmod(seconds, 60)
-    h, m = divmod(m, 60)
-    parts = []
-    if h > 0: parts.append(f"{h} Hours")
-    if m > 0: parts.append(f"{m} Minutes")
-    if s > 0: parts.append(f"{s} Seconds")
-    return " ".join(parts)
-
-# 🔗 Helper function
+# ðŸ”— Helper function
 def format_url(url):
     if not url: return None
     url = str(url).strip()
@@ -43,11 +31,11 @@ def format_url(url):
         return f"https://{url}"
     return url
 
-# 🔍 𝗦𝗺𝗮𝗿𝘁 𝗥𝗲𝗴𝗲𝘅 - 𝗘𝗽𝗶𝘀𝗼𝗱𝗲 𝗗𝗲𝘁𝗲𝗰𝘁𝗶𝗼𝗻
+# ðŸ” ð—¦ð—ºð—®ð—¿ð˜ ð—¥ð—²ð—´ð—²ð˜… - ð—˜ð—½ð—¶ð˜€ð—¼ð—±ð—² ð——ð—²ð˜ð—²ð—°ð˜ð—¶ð—¼ð—» (Strictly fixed to avoid 720p/1080p bugs)
 EP_REGEX = r"(?i)(?:s\d{1,2})?[\s_.\-:]*(?:ep|episode|epi|e)[\s_.\-:]*(\d+)(?:(?:\s*[-~]\s*|\s+to\s+)(\d+))?"
 
 
-# --- 🟢 SMART FILE UPLOAD & AUTO-BATCH HANDLER ---
+# --- ðŸŸ¢ SMART FILE UPLOAD & AUTO-BATCH HANDLER ---
 
 @Client.on_message((filters.document | filters.video) & admin_filter & filters.private)
 async def handle_video_upload(client, message):
@@ -55,9 +43,11 @@ async def handle_video_upload(client, message):
     file_id = message.document.file_id if message.document else message.video.file_id
     caption = message.caption or "No Caption"
 
+    # Agar user ne pehli baar file bheji hai, to nayi list banayenge
     if user_id not in pending_uploads:
         pending_uploads[user_id] = []
 
+    # File ko queue me add karna
     pending_uploads[user_id].append({
         "file_id": file_id,
         "caption": caption,
@@ -68,75 +58,77 @@ async def handle_video_upload(client, message):
     files = pending_uploads[user_id]
     ep_numbers = []
 
+    # Queue me jitni bhi files hain, sabke episode numbers check karna
     for f in files:
         match = re.search(EP_REGEX, f['caption'])
         if match:
-            ep_numbers.append(int(match.group(1)))
-            if match.group(2): 
+            ep_numbers.append(int(match.group(1))) # First Ep Number
+            if match.group(2): # If explicit range exists in filename
                 ep_numbers.append(int(match.group(2)))
 
+    # Smart Button Naming
     if ep_numbers:
         min_ep = min(ep_numbers)
         max_ep = max(ep_numbers)
         if min_ep == max_ep:
-            btn_name = f"🎬 𝗘𝗣𝗜𝗦𝗢𝗗𝗘 {min_ep}"
+            btn_name = f"ðŸŽ¬ ð—˜ð—£ð—œð—¦ð—¢ð——ð—˜ {min_ep}"
         else:
-            btn_name = f"🎬 𝗘𝗣𝗜𝗦𝗢𝗗𝗘 {min_ep} - {max_ep}"
+            btn_name = f"ðŸŽ¬ ð—˜ð—£ð—œð—¦ð—¢ð——ð—˜ {min_ep} - {max_ep}"
     else:
-        btn_name = f"📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱 {len(files)} 𝗩𝗶𝗱𝗲𝗼𝘀" if len(files) > 1 else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱 𝗩𝗶𝗱𝗲𝗼"
+        btn_name = f"ðŸ“¥ ð——ð—¼ð˜„ð—»ð—¹ð—¼ð—®ð—± {len(files)} ð—©ð—¶ð—±ð—²ð—¼ð˜€" if len(files) > 1 else "ðŸ“¥ ð——ð—¼ð˜„ð—»ð—¹ð—¼ð—®ð—± ð—©ð—¶ð—±ð—²ð—¼"
 
     text = (
-        f"✅ **File Added to Queue!**\n"
+        f"âœ… **File Added to Queue!**\n"
         f"**Total Files Pending:** `{len(files)}`\n"
         f"**Button Preview:** {btn_name}\n\n"
-        f"👉 *Send more videos to add them to this batch, or click the button below to post them now.*"
+        f"ðŸ‘‰ *Send more videos to add them to this batch, or click the button below to post them now.*"
     )
 
     buttons = [
-        [InlineKeyboardButton("🚀 Post to Channel", callback_data="generate_post")],
-        [InlineKeyboardButton("🗑 Cancel Upload", callback_data="cancel_upload")]
+        [InlineKeyboardButton("ðŸš€ Post to Channel", callback_data="generate_post")],
+        [InlineKeyboardButton("ðŸ—‘ Cancel Upload", callback_data="cancel_upload")]
     ]
 
     await message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons), quote=True)
 
 
-# --- 🟢 GENERATE LINK & SHOW CHANNELS ---
+# --- ðŸŸ¢ GENERATE LINK & SHOW CHANNELS ---
 
 @Client.on_callback_query(filters.regex(r"^generate_post$"))
 async def process_generate_post(client, query: CallbackQuery):
     user_id = query.from_user.id
     
     if user_id not in pending_uploads or not pending_uploads[user_id]:
-        return await query.answer("❌ No pending files found!", show_alert=True)
+        return await query.answer("âŒ No pending files found!", show_alert=True)
         
     files = pending_uploads[user_id]
-    main_caption = files[0]['caption'] 
+    main_caption = files[0]['caption'] # Pehli video ka caption use hoga
     
     ep_numbers = []
-    file_data = [] # 👈 FIX: Ab sirf ID nahi, caption bhi store hoga
+    file_ids = []
     msg_ids = []
     
+    # Final data preparation
     for f in files:
-        # Ab JSON me dono cheezein list of dictionaries ban kar save hongi
-        file_data.append({"file_id": f['file_id'], "caption": f['caption']})
+        file_ids.append(f['file_id'])
         msg_ids.append(f['msg_id'])
-        
         match = re.search(EP_REGEX, f['caption'])
         if match:
             ep_numbers.append(int(match.group(1)))
             if match.group(2):
                 ep_numbers.append(int(match.group(2)))
                 
+    # Final Button Name
     if ep_numbers:
         min_ep = min(ep_numbers)
         max_ep = max(ep_numbers)
-        btn_name = f"🎬 𝗘𝗣𝗜𝗦𝗢𝗗𝗘 {min_ep}" if min_ep == max_ep else f"🎬 𝗘𝗣𝗜𝗦𝗢𝗗𝗘 {min_ep} - {max_ep}"
+        btn_name = f"ðŸŽ¬ ð—˜ð—£ð—œð—¦ð—¢ð——ð—˜ {min_ep}" if min_ep == max_ep else f"ðŸŽ¬ ð—˜ð—£ð—œð—¦ð—¢ð——ð—˜ {min_ep} - {max_ep}"
     else:
-        btn_name = f"📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱 {len(files)} 𝗩𝗶𝗱𝗲𝗼𝘀" if len(files) > 1 else "📥 𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱 𝗩𝗶𝗱𝗲𝗼"
+        btn_name = f"ðŸ“¥ ð——ð—¼ð˜„ð—»ð—¹ð—¼ð—®ð—± {len(files)} ð—©ð—¶ð—±ð—²ð—¼ð˜€" if len(files) > 1 else "ðŸ“¥ ð——ð—¼ð˜„ð—»ð—¹ð—¼ð—®ð—± ð—©ð—¶ð—±ð—²ð—¼"
 
+    # Secure Hash aur Link generate karna
     file_hash = secrets.token_urlsafe(8)
-    # Database me JSON ab naye format me jayega
-    await db.save_file(json.dumps(file_data), file_hash, main_caption)
+    await db.save_file(json.dumps(file_ids), file_hash, main_caption)
     
     bot_info = await client.get_me()
     start_link = f"https://t.me/{bot_info.username}?start={file_hash}"
@@ -150,6 +142,7 @@ async def process_generate_post(client, query: CallbackQuery):
         "is_batch": len(files) > 1
     }
     
+    # Queue ko clear karna jab kaam ho jaye
     del pending_uploads[user_id]
     
     await query.message.delete()
@@ -161,27 +154,27 @@ async def cancel_upload_queue(client, query: CallbackQuery):
     user_id = query.from_user.id
     if user_id in pending_uploads:
         del pending_uploads[user_id]
-    await query.message.edit("❌ **Upload Cancelled. Queue cleared.**")
+    await query.message.edit("âŒ **Upload Cancelled. Queue cleared.**")
 
 
 # Helper: Send Channel List
 async def send_channel_selection(message, file_hash, caption, btn_name):
     channels = await db.get_channels()
     if not channels:
-        return await message.reply_text("❌ **No channels added yet.** Please add one using `/addchannel` first.")
+        return await message.reply_text("âŒ **No channels added yet.** Please add one using `/addchannel` first.")
 
     buttons = [[InlineKeyboardButton(ch.get('name', 'Channel'), callback_data=f"post:{file_hash}:{ch['_id']}")] for ch in channels]
     
     await message.reply_text(
-        f"> 🔗 **𝗟𝗶𝗻𝗸 𝗚𝗲𝗻𝗲𝗿𝗮𝘁𝗲𝗱 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆!**\n\n"
-        f"**𝗙𝗶𝗹𝗲:** `{caption[:40]}...`\n"
-        f"**𝗕𝘂𝘁𝘁𝗼𝗻 𝗡𝗮𝗺𝗲:** {btn_name}\n\n"
-        f"👇 𝗦𝗲𝗹𝗲𝗰𝘁 𝗮 𝗖𝗵𝗮𝗻𝗻𝗲𝗹 𝘁𝗼 𝗽𝗼𝘀𝘁:",
+        f"> ðŸ”— **ð—Ÿð—¶ð—»ð—¸ ð—šð—²ð—»ð—²ð—¿ð—®ð˜ð—²ð—± ð—¦ð˜‚ð—°ð—°ð—²ð˜€ð˜€ð—³ð˜‚ð—¹ð—¹ð˜†!**\n\n"
+        f"**ð—™ð—¶ð—¹ð—²:** `{caption[:40]}...`\n"
+        f"**ð—•ð˜‚ð˜ð˜ð—¼ð—» ð—¡ð—®ð—ºð—²:** {btn_name}\n\n"
+        f"ðŸ‘‡ ð—¦ð—²ð—¹ð—²ð—°ð˜ ð—® ð—–ð—µð—®ð—»ð—»ð—²ð—¹ ð˜ð—¼ ð—½ð—¼ð˜€ð˜:",
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
 
-# --- 🟢 FAST POSTING ---
+# --- ðŸŸ¢ FAST POSTING ---
 
 @Client.on_callback_query(filters.regex(r"^post:"))
 async def final_post_to_channel(client, query: CallbackQuery):
@@ -191,15 +184,15 @@ async def final_post_to_channel(client, query: CallbackQuery):
     
     p_data = post_data.get(file_hash)
     if not p_data:
-        return await query.answer("❌ Data expired! Please re-upload.", show_alert=True)
+        return await query.answer("âŒ Data expired! Please re-upload.", show_alert=True)
         
-    await query.message.edit("> ⏳ **𝗣𝗼𝘀𝘁𝗶𝗻𝗴 𝘁𝗼 𝗖𝗵𝗮𝗻𝗻𝗲𝗹...**")
+    await query.message.edit("> â³ **ð—£ð—¼ð˜€ð˜ð—¶ð—»ð—´ ð˜ð—¼ ð—–ð—µð—®ð—»ð—»ð—²ð—¹...**")
     
     channels = await db.get_channels()
     target_channel = next((ch for ch in channels if ch["_id"] == channel_id), None)
     
     if not target_channel:
-        return await query.message.edit("❌ **Channel not found in the Database!**")
+        return await query.message.edit("âŒ **Channel not found in the Database!**")
 
     settings = await db.get_settings()
     post_mode = settings.get("post_mode", "Link").capitalize()
@@ -210,8 +203,7 @@ async def final_post_to_channel(client, query: CallbackQuery):
     ch_title = target_channel.get("name", "")
     
     timer_seconds = parse_time(auto_del_str)
-    display_time = get_readable_time(timer_seconds) # 👈 FIX: Seconds converted to text
-    sent_msg_ids = []
+    sent_msg_ids = [] # Single or multiple post IDs
     
     try:
         if post_mode == "Forward":
@@ -232,7 +224,7 @@ async def final_post_to_channel(client, query: CallbackQuery):
                     message_id=mid
                 )
                 sent_msg_ids.append(msg.id)
-                await asyncio.sleep(1) 
+                await asyncio.sleep(1) # Batch copy rate-limit prevention
                 
         else: # Link Mode
             btn_rows = [[InlineKeyboardButton(p_data["btn_name"], url=format_url(p_data["start_link"]))]]
@@ -249,7 +241,7 @@ async def final_post_to_channel(client, query: CallbackQuery):
                 if current_row: btn_rows.append(current_row)
             else:
                 bot_username = (await client.get_me()).username
-                btn_rows.append([InlineKeyboardButton("💬 𝗛𝗲𝗹𝗽", url=f"https://t.me/{bot_username}")])
+                btn_rows.append([InlineKeyboardButton("ðŸ’¬ ð—›ð—²ð—¹ð—½", url=f"https://t.me/{bot_username}")])
                 
             keyboard = InlineKeyboardMarkup(btn_rows)
             post_text = f"**{ch_title}**\n\n" if ch_title else f"**{p_data['caption']}**\n\n"
@@ -265,12 +257,12 @@ async def final_post_to_channel(client, query: CallbackQuery):
             
             sent_msg_ids = [msg.id]
                 
-        # 👈 FIX: Ab '300' ki jagah '5 Minutes' show hoga
-        await query.message.edit(f"> ✅ **𝗣𝗼𝘀𝘁 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆 𝗦𝗲𝗻𝘁!**\n\n**𝗠𝗼𝗱𝗲:** `{post_mode}`\n**𝗔𝘂𝘁𝗼-𝗗𝗲𝗹𝗲𝘁𝗲:** `{display_time}`")
+        await query.message.edit(f"> âœ… **ð—£ð—¼ð˜€ð˜ ð—¦ð˜‚ð—°ð—°ð—²ð˜€ð˜€ð—³ð˜‚ð—¹ð—¹ð˜† ð—¦ð—²ð—»ð˜!**\n\n**ð— ð—¼ð—±ð—²:** `{post_mode}`\n**ð—”ð˜‚ð˜ð—¼-ð——ð—²ð—¹ð—²ð˜ð—²:** `{auto_del_str}`")
         
     except Exception as e:
-        return await query.message.edit(f"❌ **Error While Posting:**\n`{e}`")
+        return await query.message.edit(f"âŒ **Error While Posting:**\n`{e}`")
 
+    # ðŸ—‘ï¸ Auto Delete Background Task
     if timer_seconds > 0:
         if sent_msg_ids:
             asyncio.create_task(delete_post_later(client, channel_id, sent_msg_ids, timer_seconds))
@@ -278,6 +270,7 @@ async def final_post_to_channel(client, query: CallbackQuery):
         asyncio.create_task(delete_post_later(client, p_data["chat_id"], p_data["msg_ids"], timer_seconds))
         asyncio.create_task(delete_post_later(client, query.message.chat.id, [query.message.id], timer_seconds))
 
+# Background Helper Task (Supports both single ID and list of IDs)
 async def delete_post_later(client, chat_id, msg_ids, delay):
     await asyncio.sleep(delay)
     try:
